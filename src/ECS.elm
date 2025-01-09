@@ -13,7 +13,7 @@ import Platform.Sub exposing (none)
 type Component = StringValue String | NumValue Float
 type alias Entity = Dict String Component
 
-type alias System = List Entity -> List Entity
+type alias System model = model -> List Entity -> List Entity
 hasComponents : List String -> Entity -> Bool
 hasComponents components entity = List.all (\ a -> member a entity) components
 

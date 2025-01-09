@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (main)
 
 import UI
 import ECS
@@ -17,18 +17,22 @@ main = Browser.element {
         init = init, update = update, view = view, subscriptions = subscriptions
     }
 
-type alias Model = { tick: Int, paused: Bool, entities: List ECS.Entity }
+type alias Model = { 
+        tick: Int, paused: Bool, 
+        entities: List ECS.Entity,
+        width: Float, height: Float
+    }
 type Msg = Tick Time.Posix | TogglePause
 
 init : () -> (Model, Cmd Msg)
-init _ = (Model 0 False [makeShape 5 25 1 1 "square"], Cmd.none)
+init _ = (Model 0 False [makeShape 10 11 -1 -1 "square"] 500 500, Cmd.none)
 
 subscriptions : Model -> Sub Msg
-subscriptions {paused} = if not paused then Time.every 16 Tick else Sub.none
+subscriptions {paused} = if not paused then Time.every 30 Tick else Sub.none
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg ({tick, paused, entities} as model) = case msg of
-    Tick _ -> ({ model | tick = tick + 1, entities = applySystems entities }, Cmd.none)
+    Tick _ -> ({ model | tick = tick + 1, entities = applySystems model entities }, Cmd.none)
     TogglePause -> ({ model | paused = not paused }, Cmd.none)
 
 view : Model -> Html Msg
@@ -62,12 +66,28 @@ makeShape x y vx vy shape = Dict.fromList
         ("vx", ECS.NumValue vx), ("vy", ECS.NumValue vy)
     ]
 
-applySystems : ECS.System
-applySystems entities = moveShapes entities
+applySystems : ECS.System Model
+applySystems model entities = moveShapes model entities 
+    |> bounceShapes model 
 
-moveShapes : ECS.System
-moveShapes entities = List.map moveShape entities
+bounceShapes : ECS.System Model
+bounceShapes model entities = List.map (\ e -> bounceShape model e) entities
+bounceShape : Model -> ECS.Entity -> ECS.Entity
+bounceShape {width, height} entity = 
+    if ECS.hasComponents ["x", "y", "vx", "vy"] entity then
+        if ECS.nget "x" entity <= 0 || ECS.nget "x" entity >= width then
+            ECS.nset "vx" (-1 * (ECS.nget "vx" entity)) entity
+        else 
+            if ECS.nget "y" entity <= 0 || ECS.nget "y" entity >= height then
+                ECS.nset "vy" (-1 * (ECS.nget "vy" entity)) entity
+            else 
+                entity
+    else 
+        entity
 
+
+moveShapes : ECS.System Model
+moveShapes _ entities = List.map moveShape entities
 moveShape : ECS.Entity -> ECS.Entity
 moveShape entity = 
     if ECS.hasComponents ["x", "y", "vx", "vy"] entity then
